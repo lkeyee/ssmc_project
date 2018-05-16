@@ -17,6 +17,7 @@ public class SensorData {
     private float values[];//待写入的数据
     private float sencondToBegin;//计算从任务开始到现在的用时
     private String currentTime;//当前时间戳
+    private int dataType;
 
 
     public SensorData(String dataName, float[] values) {
@@ -24,10 +25,10 @@ public class SensorData {
         this.values = values;
     }
 
-    public SensorData(float sencondToBegin,String currentTime,String dataName,float[] values){
+    public SensorData(float sencondToBegin,String currentTime,int dataType,float[] values){
         this.sencondToBegin=sencondToBegin;
         this.currentTime=currentTime;
-        this.dataName=dataName;
+        this.dataType=dataType;
         this.values=values;
     }
 
@@ -61,5 +62,13 @@ public class SensorData {
 
     public void setCurrentTime(String currentTime) {
         this.currentTime = currentTime;
+    }
+
+    public int getDataType() {
+        return dataType;
+    }
+
+    public void setDataType(int dataType) {
+        this.dataType = dataType;
     }
 }

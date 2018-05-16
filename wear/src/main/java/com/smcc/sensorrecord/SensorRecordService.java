@@ -8,6 +8,7 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Binder;
 import android.os.IBinder;
+import android.util.Log;
 
 import com.smcc.sensordesc.SensorData;
 
@@ -16,6 +17,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
+
+import static android.content.ContentValues.TAG;
 
 /**
  * 读取传感器数据并异步存储到本地
@@ -51,6 +54,7 @@ public class SensorRecordService extends Service {
             float secondToBegin = (System.currentTimeMillis() - startTime) / 1000.00f; //计算从任务开始到现在的用时
             String currentTime = getCurrTime();//当前时间戳
             SensorData data;//待写入的传感器数据
+            Log.d(TAG, "onSensorChanged1:  " + event.sensor.getType() + " time = " + secondToBegin);
             switch (event.sensor.getType()) {
                 //处理不同类型的传感器的传回数据
                 case Sensor.TYPE_ACCELEROMETER:

@@ -7,17 +7,29 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Binder;
+import android.os.Environment;
 import android.os.IBinder;
+import android.provider.Settings;
 import android.util.Log;
 
 import com.smcc.sensordesc.SensorData;
 
 import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import static android.content.ContentValues.TAG;
 
@@ -28,17 +40,20 @@ public class SensorRecordService extends Service {
 
     private SensorManager mSensorManager;
     private SensorEventListener mSensorEventListener;
-    private SensorDataIO sensorDataIO;
+    private SensorDataIO mSensorDataIO;
 
-    private float startTime;
+    private long startTime;
+
+    public SensorRecordService() {
+
+    }
 
     @Override
     public void onCreate() {
+        super.onCreate();
         //1.获取SensorManager实例
         mSensorManager = (SensorManager) this.getSystemService(Service.SENSOR_SERVICE);
         mSensorEventListener = new MySensorEventListener();
-        super.onCreate();
-        sensorDataIO=new SensorDataIO();
     }
 
     @Override
@@ -54,53 +69,36 @@ public class SensorRecordService extends Service {
 
         @Override
         public void onSensorChanged(SensorEvent event) {
-            float secondToBegin = (System.currentTimeMillis() - startTime) / 1000.00f; //计算从任务开始到现在的用时
+            float secondToBegin = (float) ( (System.currentTimeMillis() -startTime)/1000.00f) ; //计算从任务开始到现在的用时
             String currentTime = getCurrTime();//当前时间戳
-            Log.d(TAG, "onSensorChanged:  " + event.sensor.getType() + " time = " + secondToBegin);
-            SensorData data;//待写入的传感器数据
-
+            String sensorName=null;
             switch (event.sensor.getType()) {
                 //处理不同类型的传感器的传回数据
                 case Sensor.TYPE_ACCELEROMETER:
-                    data = new SensorData(secondToBegin,currentTime,SensorData.ACCELEROMETER, event.values);
-                    sensorDataIO.writeSensorData(data);
-                    /*List<SensorData> list=sensorDataIO.readSensorData(Sensor.STRING_TYPE_ACCELEROMETER);
-                    for(int i=0;i<list.size();i++){
-                        SensorData sensorData=list.get(i);
-                        Log.i(TAG,"list["+i+"]="+data.getSencondToBegin()+" "+data.getCurrentTime()+" "+data.getValues()[0]);
-                    }*/
-                    //TODO:将TYPE_ACCELEROMETER的数据异步保存到本地
+                    sensorName=Sensor.STRING_TYPE_ACCELEROMETER;
                     break;
                 case Sensor.TYPE_GRAVITY:
-                    data = new SensorData(secondToBegin,currentTime,SensorData.GRAVITY, event.values);
-                    sensorDataIO.writeSensorData(data);
-                    //TODO:将TYPE_GRAVITY的数据保存到异步本地
+                    sensorName=Sensor.STRING_TYPE_GRAVITY;
                     break;
                 case Sensor.TYPE_GYROSCOPE:
-                    data = new SensorData(secondToBegin,currentTime,SensorData.GYROSCOPE, event.values);
-                    sensorDataIO.writeSensorData(data);
-                    //TODO:将TYPE_GYROSCOPE的数据保存到异步本地
+                    sensorName=Sensor.STRING_TYPE_GYROSCOPE;
                     break;
                 case Sensor.TYPE_LINEAR_ACCELERATION:
-                    data = new SensorData(secondToBegin,currentTime,SensorData.LINEAR_ACCELERATION, event.values);
-                    sensorDataIO.writeSensorData(data);
-                    //TODO:将TYPE_LINEAR_ACCELERATION的数据异步保存到本地
+                    sensorName=Sensor.STRING_TYPE_LINEAR_ACCELERATION;
                     break;
                 case Sensor.TYPE_GAME_ROTATION_VECTOR:
-                    data = new SensorData(secondToBegin,currentTime,SensorData.ROTATION_VECTOR, event.values);
-                    sensorDataIO.writeSensorData(data);
-                    //TODO:将TYPE_GAME_ROTATION_VECTOR的数据异步保存到本地
+                    sensorName=Sensor.STRING_TYPE_ROTATION_VECTOR;
                     break;
                 case Sensor.TYPE_MAGNETIC_FIELD:
-                    data = new SensorData(secondToBegin,currentTime,SensorData.MAGNETIC_FIELD, event.values);
-                    sensorDataIO.writeSensorData(data);
-                    //TODO:将TYPE_MAGNETIC_FIELD的数据异步保存到本地
+                    sensorName=Sensor.STRING_TYPE_MAGNETIC_FIELD;
                     break;
                 case Sensor.TYPE_ORIENTATION:
-                    data = new SensorData(secondToBegin,currentTime,SensorData.ORIENTATION, event.values);
-                    sensorDataIO.writeSensorData(data);
-                    //TODO:将TYPE_ORIENTATION的数据异步保存到本地
+                    sensorName=Sensor.STRING_TYPE_ORIENTATION;
                     break;
+            }
+            if(sensorName!=null) {
+                SensorData sensorData = new SensorData(secondToBegin, currentTime, event.sensor.getType(), event.values);
+                mSensorDataIO.put(sensorData);
             }
         }
 
@@ -123,10 +121,12 @@ public class SensorRecordService extends Service {
          * @param sensorTypes {@link Sensor}中代表传感器的常量如{@link Sensor#TYPE_ACCELEROMETER}
          * @return 无法监听的传感器
          */
-        public List<Integer> start(Set<Integer> sensorTypes) {
+        public List<Integer> start(Map<String,Integer> sensorTypes) {
+            mSensorDataIO=new SensorDataIO(sensorTypes);
             //2.注册对应传感器的监听器
             List<Integer> cannotRegister = new ArrayList<>();
-            for (int sensorType : sensorTypes) {
+            Collection<Integer> sensorTypesNum=sensorTypes.values();
+            for (int sensorType : sensorTypesNum) {
                 if (mSensorManager.getDefaultSensor(sensorType) != null) {
                     mSensorManager.registerListener(mSensorEventListener,
                             mSensorManager.getDefaultSensor(sensorType),
@@ -146,14 +146,12 @@ public class SensorRecordService extends Service {
 
     }
 
-    private static String getCurrTime() {
-        /*return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").getDateInstance().format(
-                new Date(System.currentTimeMillis()));*/
+    public static String getCurrTime() {
         Date date=new Date(System.currentTimeMillis());
         SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
         String formatDate = dateFormatter.format(date);
-        Log.i(TAG,"DATA=="+formatDate);
         return formatDate;
     }
+
 
 }

@@ -204,3 +204,4 @@ public class WearActivity extends AppCompatActivity {
         }
     }
 }
+

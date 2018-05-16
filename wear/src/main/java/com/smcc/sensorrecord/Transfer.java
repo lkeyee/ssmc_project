@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.hardware.Sensor;
 import android.os.Bundle;
+import android.util.Log;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -23,6 +24,7 @@ import com.smcc.sensordesc.SensorData;
 public class Transfer implements DataApi.DataListener {
     private GoogleApiClient mGoogleApiClient;
 
+    private String TAG="Transfer";
     /**
      * 构造
      */
@@ -86,6 +88,6 @@ public class Transfer implements DataApi.DataListener {
 
     @Override
     public void onDataChanged(DataEventBuffer dataEventBuffer) {
-
+        Log.d(TAG, "onDataChanged:   ");
     }
 }
